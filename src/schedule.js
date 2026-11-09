@@ -43,7 +43,7 @@ const getShutdownsData = async () => {
     }
 
     const data = JSON.parse(match[1])
-    // ponytail: popup "Шановні клієнти!" — тут DTEK пише про аварійні відключення
+    // popup "Шановні клієнти!" — тут DTEK пише про аварійні відключення
     data.attention = (
       await browserPage.locator("#modal-attention").allTextContents()
     ).join(" ")
@@ -200,7 +200,8 @@ async function sendNotification({ text, scheduleText }) {
 }
 
 function generateEmergencyMessage() {
-  const scheduleText = "🚨 <b>Графіки не діють — аварійні відключення в Дніпрі</b> 😢"
+  const scheduleText =
+    "🚨 <b>Графіки не діють — аварійні відключення в Дніпрі</b> 😢"
   const text = [scheduleText, "", `🤖 <i>${getCurrentTime()}</i>`].join("\n")
   return { text, scheduleText }
 }
@@ -208,7 +209,12 @@ function generateEmergencyMessage() {
 async function run() {
   const data = await getShutdownsData()
 
-  if (/аварійн/i.test(data.attention) && /Дніпр/.test(data.attention)) {
+  // ponytail: шукаємо обидва слова будь-де в попапі, без розбору речень;
+  // ускладнити, якщо DTEK почне згадувати Дніпро не про аварійні відключення
+  const isDniproEmergency =
+    /аварійн/i.test(data.attention) &&
+    /Дніпр[оаі](?!\p{L})/u.test(data.attention) // не "Дніпровський район"
+  if (isDniproEmergency) {
     console.log("🚨 Emergency shutdowns in Dnipro!")
     await sendNotification(generateEmergencyMessage())
     return
