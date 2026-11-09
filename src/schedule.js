@@ -43,6 +43,10 @@ const getShutdownsData = async () => {
     }
 
     const data = JSON.parse(match[1])
+    // ponytail: popup "Шановні клієнти!" — тут DTEK пише про аварійні відключення
+    data.attention = (
+      await browserPage.locator("#modal-attention").allTextContents()
+    ).join(" ")
     console.log("✅ Getting shutdowns data finished.")
     return data
   } catch (error) {
@@ -195,8 +199,20 @@ async function sendNotification({ text, scheduleText }) {
   }
 }
 
+function generateEmergencyMessage() {
+  const scheduleText = "🚨 <b>Графіки не діють — аварійні відключення в Дніпрі</b> 😢"
+  const text = [scheduleText, "", `🤖 <i>${getCurrentTime()}</i>`].join("\n")
+  return { text, scheduleText }
+}
+
 async function run() {
   const data = await getShutdownsData()
+
+  if (/аварійн/i.test(data.attention) && /Дніпр/.test(data.attention)) {
+    console.log("🚨 Emergency shutdowns in Dnipro!")
+    await sendNotification(generateEmergencyMessage())
+    return
+  }
 
   const groups = data.data?.[data.today] ?? {}
   if (!Object.keys(groups).length) {
