@@ -107,7 +107,7 @@ function generateSchedule({ data, today }) {
   }
 }
 
-function generateMessage(schedule = [], update) {
+function generateMessage(schedule = [], update, alert) {
   console.log("🌀 Generating message...")
 
   const isShutdownsExists = schedule.some(({ power }) => !power)
@@ -115,21 +115,24 @@ function generateMessage(schedule = [], update) {
     ? console.log("🪫 Power shutdowns detected!")
     : console.log("🔋 No power shutdowns!")
 
-  const scheduleText = [
+  const scheduleLines = [
     ...(isShutdownsExists
       ? schedule
           .filter(({ power }) => !power)
           .map(({ begin, end }) => `🪫 <code>${begin} — ${end}</code>`)
       : schedule.map(({ begin, end }) => `🔋 <code>${begin} — ${end}</code>`)),
   ].join("\n")
+  // alert входить у scheduleText, щоб його поява/зникнення давали нове повідомлення
+  const scheduleText = [alert, scheduleLines].filter(Boolean).join("\n\n")
 
   const text = [
-    `⚡️ <b>Графік відключень на сьогодні:</b>`,
-    scheduleText,
-    "",
-    `📢 <i>${update}</i>`,
-    `🤖 <i>${getCurrentTime()}</i>`,
-  ].join("\n")
+    alert,
+    schedule.length &&
+      `⚡️ <b>Графік відключень на сьогодні:</b>\n${scheduleLines}`,
+    `📢 <i>${update}</i>\n🤖 <i>${getCurrentTime()}</i>`,
+  ]
+    .filter(Boolean)
+    .join("\n\n")
 
   return { text, scheduleText }
 }
@@ -199,13 +202,6 @@ async function sendNotification({ text, scheduleText }) {
   }
 }
 
-function generateEmergencyMessage() {
-  const scheduleText =
-    "🚨 <b>Графіки не діють — аварійні відключення в Дніпрі</b> 😢"
-  const text = [scheduleText, "", `🤖 <i>${getCurrentTime()}</i>`].join("\n")
-  return { text, scheduleText }
-}
-
 async function run() {
   const data = await getShutdownsData()
 
@@ -214,20 +210,20 @@ async function run() {
   const isDniproEmergency =
     /аварійн/i.test(data.attention) &&
     /Дніпр[оаі](?!\p{L})/u.test(data.attention) // не "Дніпровський район"
-  if (isDniproEmergency) {
-    console.log("🚨 Emergency shutdowns in Dnipro!")
-    await sendNotification(generateEmergencyMessage())
-    return
-  }
+  if (isDniproEmergency) console.log("🚨 Emergency shutdowns in Dnipro!")
+  const alert =
+    isDniproEmergency &&
+    "🚨 <b>Графіки не діють — аварійні відключення в Дніпрі</b> 😢"
 
   const groups = data.data?.[data.today] ?? {}
-  if (!Object.keys(groups).length) {
+  const hasSchedule = Object.keys(groups).length > 0
+  if (!hasSchedule && !alert) {
     console.log("🔋 No schedule for today.")
     return
   }
 
-  const schedule = generateSchedule(data)
-  const message = generateMessage(schedule, data.update)
+  const schedule = hasSchedule ? generateSchedule(data) : []
+  const message = generateMessage(schedule, data.update, alert)
 
   await sendNotification(message)
 }
