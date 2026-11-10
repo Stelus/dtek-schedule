@@ -45,8 +45,13 @@ const getShutdownsData = async () => {
     const data = JSON.parse(match[1])
     // popup "Шановні клієнти!" — тут DTEK пише про аварійні відключення
     data.attention = (
-      await browserPage.locator("#modal-attention").allTextContents()
-    ).join(" ")
+      await browserPage.locator("#modal-attention").allInnerTexts()
+    )
+      .join("\n")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join("\n")
     console.log("✅ Getting shutdowns data finished.")
     return data
   } catch (error) {
@@ -107,7 +112,7 @@ function generateSchedule({ data, today }) {
   }
 }
 
-function generateMessage(schedule = [], update, alert) {
+function generateMessage(schedule = [], update, alert, details) {
   console.log("🌀 Generating message...")
 
   const isShutdownsExists = schedule.some(({ power }) => !power)
@@ -126,7 +131,10 @@ function generateMessage(schedule = [], update, alert) {
   const scheduleText = [alert, scheduleLines].filter(Boolean).join("\n\n")
 
   const text = [
-    alert,
+    // details лише в text: зміна формулювання попапу редагує, а не шле нове
+    alert && details
+      ? `${alert}\n<blockquote expandable>${details}</blockquote>`
+      : alert,
     schedule.length &&
       `⚡️ <b>Графік відключень на сьогодні:</b>\n${scheduleLines}`,
     `📢 <i>${update}</i>\n🤖 <i>${getCurrentTime()}</i>`,
@@ -223,7 +231,11 @@ async function run() {
   }
 
   const schedule = hasSchedule ? generateSchedule(data) : []
-  const message = generateMessage(schedule, data.update, alert)
+  const details = data.attention
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+  const message = generateMessage(schedule, data.update, alert, details)
 
   await sendNotification(message)
 }
