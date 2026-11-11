@@ -43,6 +43,21 @@ const getShutdownsData = async () => {
     }
 
     const data = JSON.parse(match[1])
+    // HTML сторінки кешується; сайт сам доганяє свіжі дані цим запитом
+    const fresh = await browserPage.evaluate(
+      (update) =>
+        new Promise((resolve) =>
+          $.post(
+            document.querySelector('meta[name="ajaxUrl"]').content,
+            { method: "checkDisconUpdate", update },
+            resolve,
+            "json"
+          ).fail(() => resolve(null))
+        ),
+      data.update
+    )
+    if (fresh?.fact) Object.assign(data, fresh.fact)
+    console.log(`📢 DTEK data update: ${data.update}`)
     // popup "Шановні клієнти!" — тут DTEK пише про аварійні відключення
     data.attention = (
       await browserPage.locator("#modal-attention").allInnerTexts()
@@ -216,6 +231,7 @@ async function run() {
   // ponytail: шукаємо обидва слова будь-де в попапі, без розбору речень;
   // ускладнити, якщо DTEK почне згадувати Дніпро не про аварійні відключення
   const isDniproEmergency =
+    /екстрен/i.test(data.attention) ||
     /аварійн/i.test(data.attention) &&
     /Дніпр[оаі](?!\p{L})/u.test(data.attention) // не "Дніпровський район"
   if (isDniproEmergency) console.log("🚨 Emergency shutdowns in Dnipro!")
