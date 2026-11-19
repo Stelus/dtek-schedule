@@ -231,9 +231,9 @@ async function run() {
   // ponytail: шукаємо обидва слова будь-де в попапі, без розбору речень;
   // ускладнити, якщо DTEK почне згадувати Дніпро не про аварійні відключення
   const isDniproEmergency =
-    /екстрен/i.test(data.attention) ||
-    /аварійн/i.test(data.attention) &&
-    /Дніпр[оаі](?!\p{L})/u.test(data.attention) // не "Дніпровський район"
+    /екстрен/i.test(data.attention) && /Дніпр[оаі](?!\p{L})/u.test(data.attention) 
+    ||
+    /аварійн/i.test(data.attention) && /Дніпр[оаі](?!\p{L})/u.test(data.attention) // не "Дніпровський район"
   if (isDniproEmergency) console.log("🚨 Emergency shutdowns in Dnipro!")
   const alert =
     isDniproEmergency &&
